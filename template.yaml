@@ -1,0 +1,68 @@
+Transform: 'AWS::Serverless-2016-10-31'
+Resources:
+  IndexerFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Description: 'Run Rekognition detect labels from S3 events and store results in ElasticSearch.'
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.6
+      CodeUri: s3://khk-us-east-1/demos/serverless-app-repo/image-indexer.zip
+      Timeout: 30
+      Policies:
+        - AmazonS3ReadOnlyAccess
+        - AmazonRekognitionFullAccess
+      Environment:
+        Variables:
+          ELASTICSEARCH_URL: !GetAtt IndexStore.DomainEndpoint
+      Events:
+        S3JpgEvent:
+          Type: S3
+          Properties:
+            Bucket: !Ref ImageBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  -
+                    Name: suffix
+                    Value: jpg
+        S3PngEvent:
+          Type: S3
+          Properties:
+            Bucket: !Ref ImageBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  -
+                    Name: suffix
+                    Value: png
+
+  IndexStore:
+    Type: 'AWS::Elasticsearch::Domain'
+    Properties:
+      ElasticsearchClusterConfig: 
+        DedicatedMasterEnabled: "false"
+        InstanceCount: "2"
+        ZoneAwarenessEnabled: "true"
+        InstanceType: "m4.large.elasticsearch"
+      EBSOptions: 
+        EBSEnabled: true
+        Iops: 0
+        VolumeSize: 20
+        VolumeType: 'gp2'
+      ElasticsearchVersion: 6.0
+      AdvancedOptions: 
+        rest.action.multi.allow_explicit_index: "true"
+      AccessPolicies: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Effect: "Allow"
+            Principal: 
+              AWS: "*"
+            Action: "es:*"
+            Resource: !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/*"
+
+  ImageBucket:
+    Type: 'AWS::S3::Bucket'
