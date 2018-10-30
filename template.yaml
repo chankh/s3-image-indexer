@@ -1,4 +1,8 @@
 Transform: 'AWS::Serverless-2016-10-31'
+Parameters:
+  ElasticSearchEndpoint:
+    Description: 'ElasticSearch service endpoint'
+    Type: 'String'
 Resources:
   IndexerFunction:
     Type: 'AWS::Serverless::Function'
@@ -8,12 +12,9 @@ Resources:
       Runtime: python3.6
       CodeUri: s3://khk-us-east-1/demos/serverless-app-repo/image-indexer.zip
       Timeout: 30
-      Policies:
-        - AmazonS3ReadOnlyAccess
-        - AmazonRekognitionFullAccess
       Environment:
         Variables:
-          ELASTICSEARCH_URL: !GetAtt IndexStore.DomainEndpoint
+          ELASTICSEARCH_URL: !Ref ElasticSearchEndpoint
       Events:
         S3JpgEvent:
           Type: S3
@@ -37,32 +38,6 @@ Resources:
                   -
                     Name: suffix
                     Value: png
-
-  IndexStore:
-    Type: 'AWS::Elasticsearch::Domain'
-    Properties:
-      ElasticsearchClusterConfig: 
-        DedicatedMasterEnabled: "false"
-        InstanceCount: "2"
-        ZoneAwarenessEnabled: "true"
-        InstanceType: "m4.large.elasticsearch"
-      EBSOptions: 
-        EBSEnabled: true
-        Iops: 0
-        VolumeSize: 20
-        VolumeType: 'gp2'
-      ElasticsearchVersion: 6.0
-      AdvancedOptions: 
-        rest.action.multi.allow_explicit_index: "true"
-      AccessPolicies: 
-        Version: "2012-10-17"
-        Statement: 
-          - 
-            Effect: "Allow"
-            Principal: 
-              AWS: "*"
-            Action: "es:*"
-            Resource: !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/*"
 
   ImageBucket:
     Type: 'AWS::S3::Bucket'
